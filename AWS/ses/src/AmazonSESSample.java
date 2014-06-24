@@ -13,6 +13,7 @@
  * permissions and limitations under the License.
  */
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URLEncoder;
@@ -35,8 +36,8 @@ import javax.mail.internet.*;
 
 public class AmazonSESSample {
 
-    static final String FROM = "ops@gofastpay.com";  // Replace with your "From" address. This address must be verified.
-    static final String TO = "aravind@gofastpay.COM"; // Replace with a "To" address. If you have not yet requested
+    static final String FROM = "aravind@gofastpay.com";  // Replace with your "From" address. This address must be verified.
+    static final String TO = "aravind@gofastpay.com"; // Replace with a "To" address. If you have not yet requested
     static List<String> CC = Arrays.asList("aravind@gofastpay.com");
     // production access, this address must be verified.
     static final String BODY = "This email was sent through Amazon SES by using the AWS SDK for Java.";
@@ -58,23 +59,23 @@ public class AmazonSESSample {
     public static void main(String[] args) throws IOException, MessagingException {
 
         // Construct an object to contain the recipient address.
-        Destination destination = new Destination().withToAddresses(new String[]{TO}).withCcAddresses((String[])CC.toArray());
+        //Destination destination = new Destination().withToAddresses(new String[]{TO}).withCcAddresses((String[])CC.toArray());
 
         // Create the subject and body of the message.
-        Content subject = new Content().withData(SUBJECT);
-        Content textBody = new Content().withData(BODY);
-        Body body = new Body().withText(textBody);
+        //Content subject = new Content().withData(SUBJECT);
+        //Content textBody = new Content().withData(BODY);
+        //Body body = new Body().withText(textBody);
 
 
         // Create a message with the specified subject and body.
-        Message message = new Message().withSubject(subject).withBody(body);
+        //Message message = new Message().withSubject(subject).withBody(body);
 
         // Assemble the email.
-        SendEmailRequest request = new SendEmailRequest().withSource(FROM).withDestination(destination).withMessage(message);
-        SendRawEmailRequest rawEmailRequest = new SendRawEmailRequest()
+        //SendEmailRequest request = new SendEmailRequest().withSource(FROM).withDestination(destination).withMessage(message);
+        /*SendRawEmailRequest rawEmailRequest = new SendRawEmailRequest()
                 .withSource(FROM).withDestinations(destination.getToAddresses())
-                .withDestinations(destination.getCcAddresses())
-                .withRawMessage(getRawMessage());
+                //.withDestinations(destination.getCcAddresses())
+                .withRawMessage(getRawMessage());*/
 
         try {
             System.out.println("Attempting to send an email through Amazon SES by using the AWS SDK for Java...");
@@ -87,7 +88,7 @@ public class AmazonSESSample {
              * TransferManager manages a pool of threads, so we create a
              * single instance and share it throughout our application.
              */
-            AWSCredentials credentials = null;
+            AWSCredentials credentials;
             try {
                 credentials = new ProfileCredentialsProvider().getCredentials();
             } catch (Exception e) {
@@ -112,6 +113,9 @@ public class AmazonSESSample {
             // Send the email.
             //client.sendEmail(request);
             //System.out.println("Sending raw email: " + rawEmailRequest.toString());
+            SendRawEmailRequest rawEmailRequest = new SendRawEmailRequest(getRawMessage());
+            rawEmailRequest.setDestinations(Arrays.asList(TO));
+            rawEmailRequest.setSource(FROM);
             SendRawEmailResult rawEmailResult = client.sendRawEmail(rawEmailRequest);
             System.out.println("Email Result = " + rawEmailResult.toString());
            // System.out.println("Email sent!");
@@ -125,32 +129,46 @@ public class AmazonSESSample {
     private static RawMessage getRawMessage() throws MessagingException, IOException {
         // JavaMail representation of the message
         Session s = Session.getInstance(new Properties(), null);
+        s.setDebug(true);
         MimeMessage msg = new MimeMessage(s);
 
         // Sender and recipient
-        msg.setFrom(new InternetAddress("ops@gofastpay.com"));
-        msg.setRecipient( javax.mail.Message.RecipientType.TO, new InternetAddress("aravind@gofastpay.com"));
-
+        msg.setFrom(new InternetAddress("aravind@gofastpay.com"));
+        InternetAddress[] address = {new InternetAddress("aravind@gofastpay.com")};
+        msg.setRecipients(javax.mail.Message.RecipientType.TO, address);
+        msg.setSentDate(new Date());
         // Subject
-        msg.setSubject("MIME email test");
+        msg.setSubject(SUBJECT);
 
 
         // Add a MIME part to the message
-        MimeMultipart mp = new MimeMultipart();
+        //MimeMultipart mp = new MimeMultipart();
+        Multipart mp = new MimeMultipart();
+        MimeBodyPart mimeBodyPart = new MimeBodyPart();
+        //mimeBodyPart.setText(BODY);
 
-        BodyPart part = new MimeBodyPart();
-        String myText = "<h1>Hello, this is a test</h1>";
-        part.setContent(URLEncoder.encode(myText, "US-ASCII"), "text/html");
-        mp.addBodyPart(part);
+        //BodyPart part = new MimeBodyPart();
+        //String myText = BODY;
+        //part.setContent(URLEncoder.encode(myText, "US-ASCII"), "text/html");
+        //part.setText(BODY);
+        //mp.addBodyPart(part);
+        //msg.setContent(mp);
+        mimeBodyPart.setContent(BODY,"text/html");
+        mp.addBodyPart(mimeBodyPart);
         msg.setContent(mp);
 
         // Print the raw email content on the console
-        PrintStream out = System.out;
+        //PrintStream out = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         msg.writeTo(out);
-        byte[] bytes = IOUtils.toByteArray(msg.getInputStream());
-        ByteBuffer byteBuffer = ByteBuffer.allocate(bytes.length);
-        //ByteBuffer byteBuffer = ByteBuffer.wrap(Base64.getEncoder().encode(bytes));
-        byteBuffer.put(bytes);
-        return new RawMessage(byteBuffer);
+        //String rawString = out.toString();
+        //byte[] bytes = IOUtils.toByteArray(msg.getInputStream());
+        //ByteBuffer byteBuffer = ByteBuffer.allocate(bytes.length);
+        //ByteBuffer byteBuffer = ByteBuffer.wrap(Base64.getEncoder().encode(rawString.getBytes()));
+
+        //byteBuffer.put(bytes);
+        //byteBuffer.put(Base64.getEncoder().encode(bytes));
+        RawMessage rawMessage = new RawMessage(ByteBuffer.wrap(out.toByteArray()));
+        return rawMessage;
     }
 }
